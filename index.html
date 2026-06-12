@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>法考通关助手</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #1E3A8A; /* 藏青色 */
+            --bg-color: #F9F9F6;      /* 护眼米灰背景 */
+            --card-bg: #FFFFFF;
+            --text-main: #333333;
+            --text-sub: #666666;
+            --success-color: #10B981; /* 正确绿 */
+            --error-color: #EF4444;   /* 错误红 */
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Noto Sans SC', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            line-height: 1.8;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+        }
+
+        .app-container {
+            width: 100%;
+            max-width: 600px;
+            padding: 20px;
+        }
+
+        /* --- 通用头部样式 --- */
+        header {
+            text-align: center;
+            padding: 20px 0;
+            color: var(--primary-color);
+            font-size: 1.5rem;
+            font-weight: bold;
+            letter-spacing: 2px;
+        }
+
+        /* --- 首页仪表盘 --- */
+        .dashboard-stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .stat-card {
+            background: var(--card-bg);
+            padding: 15px 5px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+        }
+        .stat-num { font-size: 1.5rem; font-weight: bold; color: var(--primary-color); }
+        .stat-label { font-size: 0.8rem; color: var(--text-sub); }
+
+        .action-buttons { display: flex; gap: 15px; margin-bottom: 30px; }
+        .btn {
+            flex: 1;
+            padding: 15px;
+            border: none;
+            border-radius: 12px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: bold;
+        }
+        .btn-primary { background-color: var(--primary-color); color: white; }
+        .btn-secondary { background-color: var(--card-bg); color: var(--primary-color); border: 2px solid var(--primary-color); }
+
+        /* --- 刷题界面 --- */
+        .quiz-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            color: var(--text-sub);
+            font-size: 0.9rem;
+        }
+        .timer { font-weight: bold; color: var(--primary-color); }
+
+        .question-card {
+            background: var(--card-bg);
+            padding: 25px;
+            border-radius: 16px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            margin-bottom: 20px;
+        }
+        .q-text { font-size: 1.1rem; margin-bottom: 20px; font-weight: 500; }
+        
+        .options-list { display: flex; flex-direction: column; gap: 12px; }
+        .option-item {
+            padding: 15px;
+            border: 2px solid #eee;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .option-item:hover { border-color: var(--primary-color); background: #f0f4ff; }
+        .option-item.selected { border-color: var(--primary-color); background: #e0e7ff; font-weight: bold; }
+        .option-item.correct { border-color: var(--success-color) !important; background: #d1fae5 !important; color: #065f46; }
+        .option-item.wrong { border-color: var(--error-color) !important; background: #fee2e2 !important; color: #991b1b; }
+
+        .explanation-box {
+            margin-top: 20px;
+            padding: 15px;
+            background: #FFFBEB;
+            border-left: 4px solid #F59E0B;
+            border-radius: 0 8px 8px 0;
+            font-size: 0.9rem;
+            color: #92400E;
+            display: none; /* 默认隐藏 */
+        }
+
+        .bottom-nav {
+            display: flex;
+            gap: 10px;
+            position: sticky;
+            bottom: 0;
+            background: var(--bg-color);
+            padding: 15px 0;
+        }
+        .bottom-nav .btn { font-size: 0.9rem; padding: 12px; }
+
+        /* --- 错题本列表 --- */
+        .wrong-list-item {
+            background: var(--card-bg);
+            padding: 15px;
+            border-radius: 12px;
+            margin-bottom: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+            cursor: pointer;
+        }
+        .wrong-list-item:hover { transform: translateX(5px); transition: 0.2s; }
+        .empty-tip { text-align: center; padding: 40px; color: #aaa; }
+
+        /* 隐藏视图的辅助类 */
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    <!-- 1. 首页视图 -->
+    <div id="view-home">
+        <header>⚖️ 法考通关助手</header>
+        <div class="dashboard-stats">
+            <div class="stat-card">
+                <div class="stat-num" id="stat-total">0</div>
+                <div class="stat-label">已做题目</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-num" id="stat-rate">0%</div>
+                <div class="stat-label">正确率</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-num" id="stat-wrong">0</div>
+                <div class="stat-label">错题数</div>
+            </div>
+        </div>
+        <div class="action-buttons">
+            <button class="btn btn-primary" onclick="startQuiz()">开始刷题</button>
+            <button class="btn btn-secondary" onclick="showWrongBook()">错题复习</button>
+        </div>
+        <h3 style="margin-bottom:10px; font-size:1rem;">最近做题记录</h3>
+        <div id="history-list"></div>
+    </div>
+
+    <!-- 2. 刷题视图 -->
+    <div id="view-quiz" class="hidden">
+        <div class="quiz-header">
+            <span id="progress-text">第 1/5 题</span>
+            <span class="timer" id="timer-text">⏱️ 00:00</span>
+        </div>
+        <div class="question-card">
+            <div class="q-text" id="q-text"></div>
+            <div class="options-list" id="options-list"></div>
+            <div class="explanation-box" id="explanation-box">
+                <strong>💡 解析：</strong><span id="exp-text"></span>
+            </div>
+        </div>
+        <div class="bottom-nav">
+            <button class="btn btn-secondary" id="btn-prev" onclick="prevQuestion()">上一题</button>
+            <button class="btn btn-primary" id="btn-submit" onclick="submitAnswer()">确认答案</button>
+            <button class="btn btn-secondary" id="btn-next" onclick="nextQuestion()">下一题</button>
+        </div>
+    </div>
+
+    <!-- 3. 错题本视图 -->
+    <div id="view-wrong" class="hidden">
+        <header style="font-size:1.2rem; display:flex; justify-content:space-between; align-items:center;">
+            <span>📕 我的错题本</span>
+            <span style="font-size:0.8rem; color:#ef4444; cursor:pointer;" onclick="clearWrongBook()">清空</span>
+        </header>
+        <div id="wrong-list-container"></div>
+        <div class="bottom-nav">
+            <button class="btn btn-primary" style="flex:1" onclick="switchView('home')">返回首页</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- 预设题库 (5道经典法考题) ---
+    const defaultQuestions = [
+        {
+            id: 1, 
+            question: "根据《民法典》规定，下列哪一情形下，甲乙之间的买卖合同无效？",
+            options: ["A. 甲将房屋卖给乙，但尚未办理过户登记", "B. 甲受乙欺诈，将古董花瓶低价卖给乙", "C. 甲乙双方恶意串通，签订虚假买卖合同以逃避债务", "D. 甲将属于丙的名画以自己的名义卖给不知情的乙"],
+            answer: "C", 
+            explanation: "根据《民法典》第一百四十六条及第一百五十四条规定，行为人与相对人以虚假的意思表示实施的民事法律行为无效；恶意串通损害他人合法权益的民事法律行为无效。A项未过户不影响合同效力；B项属于可撤销合同；D项属于无权处分，买卖合同本身有效。",
+            tags: ["民法"]
+        },
+        {
+            id: 2, 
+            question: "关于刑法中的正当防卫，下列说法正确的是？",
+            options: ["A. 对正在进行行凶、杀人等严重危及人身安全的暴力犯罪，采取防卫行为造成不法侵害人伤亡的，不属于防卫过当", "B. 只要受到不法侵害，就可以无限期地进行事后防卫", "C. 为了保护自己养的宠物狗被咬，将对方打成重伤，绝对构成防卫过当", "D. 互相斗殴的过程中，双方都有正当防卫权"],
+            answer: "A", 
+            explanation: "根据《刑法》第二十条第三款规定，对正在进行行凶、杀人、抢劫、强奸、绑架以及其他严重危及人身安全的暴力犯罪，采取防卫行为，造成不法侵害人伤亡的，不属于防卫过当，不负刑事责任（即特殊防卫权）。B错在防卫时间条件；C需结合具体情境判断是否明显超过必要限度；D错在互殴一般不成立正当防卫。",
+            tags: ["刑法"]
+        },
+        {
+            id: 3, 
+            question: "下列关于行政处罚的说法，错误的是？",
+            options: ["A. 限制人身自由的行政处罚，只能由法律设定", "B. 行政法规可以设定除限制人身自由以外的行政处罚", "C. 地方性法规可以设定吊销企业营业执照的行政处罚", "D. 部门规章可以在法律、行政法规规定的给予行政处罚的行为、种类和幅度的范围内作出具体规定"],
+            answer: "C", 
+            explanation: "根据《行政处罚法》第十二条规定，地方性法规可以设定除限制人身自由、吊销营业执照以外的行政处罚。因此，地方性法规无权设定吊销企业营业执照的处罚，C项说法错误。",
+            tags: ["行政法"]
+        },
+        {
+            id: 4, 
+            question: "在刑事诉讼中，下列哪项证据属于言词证据？",
+            options: ["A. 现场提取的作案刀具", "B. 监控录像拍下的作案过程", "C. 被害人的陈述", "D. 鉴定机构出具的伤情鉴定意见"],
+            answer: "C", 
+            explanation: "言词证据是指以人的语言陈述形式表现出的证据，主要包括证人证言、被害人陈述、犯罪嫌疑人/被告人供述和辩解、鉴定意见等。虽然鉴定意见是书面形式，但其本质是鉴定人的主观判断陈述，也属于广义言词证据。但在单选题语境下，最典型的言词证据是被害人陈述。物证(A)和视听资料(B)属于实物证据。",
+            tags: ["刑诉法"]
+        },
+        {
+            id: 5, 
+            question: "根据公司法原理，有限责任公司的股东对公司债务承担何种责任？",
+            options: ["A. 无限连带责任", "B. 以其认缴的出资额为限承担责任", "C. 以其实际缴纳的出资额为限承担责任", "D. 以个人全部家庭财产承担责任"],
+            answer: "B", 
+            explanation: "根据《公司法》第三条规定，有限责任公司的股东以其认缴的出资额为限对公司承担责任；股份有限公司的股东以其认购的股份为限对公司承担责任。注意是‘认缴’而非‘实缴’。",
+            tags: ["商经法"]
+        }
+    ];
+
+    let questions = [];
+    let userRecords = JSON.parse(localStorage.getItem('law_exam_records')) || {}; 
+    /* 
+       userRecords 结构示例:
+       {
+         "1": { correct: true, userAnswer: "A" },
+         "2": { correct: false, userAnswer: "B" }
+       }
+    */
+
+    let currentQIndex = 0;
+    let selectedOption = null;
+    let isSubmitted = false;
+    let timerInterval = null;
+    let seconds = 0;
+
+    // --- 初始化 ---
+    function init() {
+        const savedQ = localStorage.getItem('law_exam_questions');
+        questions = savedQ ? JSON.parse(savedQ) : defaultQuestions;
+        updateDashboard();
+        switchView('home');
+    }
+
+    function saveData() {
+        localStorage.setItem('law_exam_records', JSON.stringify(userRecords));
+        localStorage.setItem('law_exam_questions', JSON.stringify(questions));
+    }
+
+    // --- 视图切换 ---
+    function switchView(viewName) {
+        document.getElementById('view-home').classList.add('hidden');
+        document.getElementById('view-quiz').classList.add('hidden');
+        document.getElementById('view-wrong').classList.add('hidden');
+        
+        if (viewName === 'home') {
+            document.getElementById('view-home').classList.remove('hidden');
+            stopTimer();
+            updateDashboard();
+        } else if (viewName === 'quiz') {
+            document.getElementById('view-quiz').classList.remove('hidden');
+            startTimer();
+            renderQuestion();
+        } else if (viewName === 'wrong') {
+            document.getElementById('view-wrong').classList.remove('hidden');
+            renderWrongBook();
+        }
+    }
+
+    // --- 首页逻辑 ---
+    function updateDashboard() {
+        const total = Object.keys(userRecords).length;
+        const correctCount = Object.values(userRecords).filter(r => r.correct).length;
+        const wrongCount = Object.values(userRecords).filter(r => !r.correct).length;
+        const rate = total > 0 ? Math.round((correctCount / total) * 100) : 0;
+
+        document.getElementById('stat-total').innerText = total;
+        document.getElementById('stat-rate').innerText = rate + '%';
+        document.getElementById('stat-wrong').innerText = wrongCount;
+
+        // 渲染历史记录
+        const historyContainer = document.getElementById('history-list');
+        historyContainer.innerHTML = '';
+        const recentIds = Object.keys(userRecords).slice(-5).reverse();
+        if(recentIds.length === 0) {
+            historyContainer.innerHTML = '<div class="empty-tip">暂无做题记录，快去刷题吧！</div>';
+            return;
+        }
+        recentIds.forEach(id => {
+            const q = questions.find(q => q.id == id);
+            const record = userRecords[id];
+            const div = document.createElement('div');
+            div.className = 'wrong-list-item';
+            div.style.borderLeft = `4px solid ${record.correct ? 'var(--success-color)' : 'var(--error-color)'}`;
+            div.innerHTML = `<div style="font-weight:bold">${q.question.substring(0, 25)}...</div>
+                             <div style="font-size:0.8rem; color:#888; margin-top:4px;">${record.correct ? '✅ 回答正确' : '❌ 回答错误'} · ${q.tags.join('/')}</div>`;
+            historyContainer.appendChild(div);
+        });
+    }
+
+    // --- 刷题逻辑 ---
+    function startQuiz() {
+        currentQIndex = 0;
+        seconds = 0;
+        switchView('quiz');
+    }
+
+    function renderQuestion() {
+        const q = questions[currentQIndex];
+        isSubmitted = false;
+        selectedOption = userRecords[q.id] ? userRecords[q.id].userAnswer : null; // 如果做过，恢复选项
+        
+        document.getElementById('progress-text').innerText = `第 ${currentQIndex + 1}/${questions.length} 题`;
+        document.getElementById('q-text').innerText = q.question;
+        document.getElementById('exp-text').innerText = q.explanation;
+        document.getElementById('explanation-box').style.display = 'none';
+
+        // 渲染选项
+        const optList = document.getElementById('options-list');
+        optList.innerHTML = '';
+        q.options.forEach(opt => {
+            const div = document.createElement('div');
+            div.className = 'option-item';
+            div.innerText = opt;
+            div.onclick = () => selectOption(opt.charAt(0), div);
+            
+            // 如果已经作答过，直接显示结果状态
+            if (userRecords[q.id]) {
+                isSubmitted = true;
+                if (opt.charAt(0) === q.answer) div.classList.add('correct');
+                else if (opt.charAt(0) === userRecords[q.id].userAnswer && !userRecords[q.id].correct) div.classList.add('wrong');
+                document.getElementById('explanation-box').style.display = 'block';
+            } else if (selectedOption === opt.charAt(0)) {
+                div.classList.add('selected');
+            }
+            optList.appendChild(div);
+        });
+
+        // 按钮状态控制
+        document.getElementById('btn-prev').disabled = currentQIndex === 0;
+        document.getElementById('btn-next').disabled = currentQIndex === questions.length - 1;
+        document.getElementById('btn-submit').innerText = isSubmitted ? '已判定' : '确认答案';
+        document.getElementById('btn-submit').disabled = isSubmitted;
+    }
+
+    function selectOption(letter, element) {
+        if (isSubmitted) return;
+        document.querySelectorAll('.option-item').forEach(el => el.classList.remove('selected'));
+        element.classList.add('selected');
+        selectedOption = letter;
+    }
+
+    function submitAnswer() {
+        if (!selectedOption || isSubmitted) return;
+        isSubmitted = true;
+        const q = questions[currentQIndex];
+        const isCorrect = selectedOption === q.answer;
+        
+        userRecords[q.id] = { correct: isCorrect, userAnswer: selectedOption };
+        saveData();
+        renderQuestion(); // 重新渲染以显示对错颜色
+    }
+
+    function prevQuestion() { if(currentQIndex > 0) { currentQIndex--; renderQuestion(); } }
+    function nextQuestion() { if(currentQIndex < questions.length - 1) { currentQIndex++; renderQuestion(); } }
+
+    // --- 计时器 ---
+    function startTimer() {
+        stopTimer();
+        timerInterval = setInterval(() => {
+            seconds++;
+            const m = String(Math.floor(seconds / 60)).padStart(2, '0');
+            const s = String(seconds % 60).padStart(2, '0');
+            document.getElementById('timer-text').innerText = `⏱️ ${m}:${s}`;
+        }, 1000);
+    }
+    function stopTimer() { clearInterval(timerInterval); }
+
+    // --- 错题本逻辑 ---
+    function showWrongBook() { switchView('wrong'); }
+    
+    function renderWrongBook() {
+        const container = document.getElementById('wrong-list-container');
+        container.innerHTML = '';
+        const wrongIds = Object.entries(userRecords).filter(([_, v]) => !v.correct).map(([k, _]) => Number(k));
+        
+        if (wrongIds.length === 0) {
+            container.innerHTML = '<div class="empty-tip">🎉 太棒了！目前没有错题，继续保持！</div>';
+            return;
+        }
+        
+        wrongIds.forEach(id => {
+            const q = questions.find(q => q.id === id);
+            const div = document.createElement('div');
+            div.className = 'wrong-list-item';
+            div.onclick = () => {
+                currentQIndex = questions.findIndex(q => q.id === id);
+                switchView('quiz');
+            };
+            div.innerHTML = `<div style="font-weight:bold">${q.question.substring(0, 30)}...</div>
+                             <div style="font-size:0.8rem; color:#888; margin-top:4px;">[${q.tags.join('/')}] 答案: ${q.answer}</div>`;
+            container.appendChild(div);
+        });
+    }
+
+    function clearWrongBook() {
+        if(!confirm('确定要清空所有错题记录吗？此操作不可逆。')) return;
+        for(const id in userRecords) {
+            if(!userRecords[id].correct) delete userRecords[id];
+        }
+        saveData();
+        renderWrongBook();
+        updateDashboard(); // 更新首页统计数据
+    }
+
+    // 启动应用
+    init();
+</script>
+</body>
+</html>

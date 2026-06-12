@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>法考通关助手</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #1E3A8A; 
+            --bg-color: #F9F9F6;      
+            --card-bg: #FFFFFF;
+            --text-main: #333333;
+            --text-sub: #666666;
+            --success-color: #10B981; 
+            --error-color: #EF4444;   
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Noto Sans SC', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            line-height: 1.8;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+        }
+        .app-container { width: 100%; max-width: 600px; padding: 20px; padding-bottom: 100px; }
+        
+        /* 通用头部 */
+        header { text-align: center; padding: 20px 0; color: var(--primary-color); font-size: 1.5rem; font-weight: bold; letter-spacing: 2px; }
+        
+        /* 首页样式 */
+        .dashboard-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px; text-align: center; }
+        .stat-card { background: var(--card-bg); padding: 15px 5px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
+        .stat-num { font-size: 1.5rem; font-weight: bold; color: var(--primary-color); }
+        .stat-label { font-size: 0.8rem; color: var(--text-sub); }
+        .action-buttons { display: flex; gap: 15px; margin-bottom: 30px; }
+        .btn { flex: 1; padding: 15px; border: none; border-radius: 12px; font-size: 1rem; cursor: pointer; transition: all 0.3s ease; font-weight: bold; }
+        .btn-primary { background-color: var(--primary-color); color: white; }
+        .btn-secondary { background-color: var(--card-bg); color: var(--primary-color); border: 2px solid var(--primary-color); }
+        
+        /* 刷题页样式 */
+        .quiz-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; color: var(--text-sub); font-size: 0.9rem; }
+        .timer { font-weight: bold; color: var(--primary-color); }
+        .question-card { background: var(--card-bg); padding: 25px; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); margin-bottom: 20px; }
+        .q-text { font-size: 1.1rem; margin-bottom: 20px; font-weight: 500; }
+        .options-list { display: flex; flex-direction: column; gap: 12px; }
+        .option-item { padding: 15px; border: 2px solid #eee; border-radius: 12px; cursor: pointer; transition: all 0.2s ease; display: flex; align-items: center; gap: 10px; }
+        .option-item:hover { border-color: var(--primary-color); background: #f0f4ff; }
+        .option-item.selected { border-color: var(--primary-color); background: #e0e7ff; font-weight: bold; }
+        .option-item.correct { border-color: var(--success-color) !important; background: #d1fae5 !important; color: #065f46; }
+        .option-item.wrong { border-color: var(--error-color) !important; background: #fee2e2 !important; color: #991b1b; }
+        .explanation-box { margin-top: 20px; padding: 15px; background: #FFFBEB; border-left: 4px solid #F59E0B; border-radius: 0 8px 8px 0; font-size: 0.9rem; color: #92400E; display: none; }
+        
+        /* 底部固定导航 */
+        .bottom-nav { display: flex; gap: 10px; position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 600px; background: var(--bg-color); padding: 15px 20px; border-top: 1px solid #eee; z-index: 10; }
+        .bottom-nav .btn { font-size: 0.9rem; padding: 12px; }
+        
+        /* 错题本样式 */
+        .wrong-list-item { background: var(--card-bg); padding: 15px; border-radius: 12px; margin-bottom: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); cursor: pointer; transition: 0.2s; border-left: 4px solid transparent; }
+        .wrong-list-item:hover { transform: translateX(5px); }
+        .empty-tip { text-align: center; padding: 40px; color: #aaa; }
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    <!-- 1. 首页视图 -->
+    <div id="view-home">
+        <header>⚖️ 法考通关助手</header>
+        <div class="dashboard-stats">
+            <div class="stat-card"><div class="stat-num" id="stat-total">0</div><div class="stat-label">已做题目</div></div>
+            <div class="stat-card"><div class="stat-num" id="stat-rate">0%</div><div class="stat-label">正确率</div></div>
+            <div class="stat-card"><div class="stat-num" id="stat-wrong">0</div><div class="stat-label">错题数</div></div>
+        </div>
+        <div class="action-buttons">
+            <button class="btn btn-primary" onclick="startQuiz()">开始刷题</button>
+            <button class="btn btn-secondary" onclick="showWrongBook()">错题复习</button>
+        </div>
+        <h3 style="margin-bottom:10px; font-size:1rem;">最近做题记录</h3>
+        <div id="history-list"></div>
+    </div>
+
+    <!-- 2. 刷题视图 -->
+    <div id="view-quiz" class="hidden">
+        <div class="quiz-header">
+            <span id="progress-text">第 1/20 题</span>
+            <span class="timer" id="timer-text">⏱️ 00:00</span>
+        </div>
+        <div class="question-card">
+            <div class="q-text" id="q-text"></div>
+            <div class="options-list" id="options-list"></div>
+            <div class="explanation-box" id="explanation-box"><strong>💡 解析：</strong><span id="exp-text"></span></div>
+        </div>
+        <div class="bottom-nav">
+            <button class="btn btn-secondary" id="btn-prev" onclick="prevQuestion()">上一题</button>
+            <button class="btn btn-primary" id="btn-submit" onclick="submitAnswer()">确认答案</button>
+            <button class="btn btn-secondary" id="btn-next" onclick="nextQuestion()">下一题</button>
+        </div>
+    </div>
+
+    <!-- 3. 错题本视图 -->
+    <div id="view-wrong" class="hidden">
+        <header style="font-size:1.2rem; display:flex; justify-content:space-between; align-items:center;">
+            <span>📕 我的错题本</span>
+            <span style="font-size:0.8rem; color:#ef4444; cursor:pointer;" onclick="clearWrongBook()">清空</span>
+        </header>
+        <div id="wrong-list-container" style="margin-top:20px;"></div>
+        <div class="bottom-nav">
+            <button class="btn btn-primary" style="flex:1" onclick="switchView('home')">返回首页</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- 完整20道题题库 ---
+    const defaultQuestions = [
+        { id: 1, question: "根据《民法典》规定，下列哪一情形下，甲乙之间的买卖合同无效？", options: ["A. 甲将房屋卖给乙，但尚未办理过户登记", "B. 甲受乙欺诈，将古董花瓶低价卖给乙", "C. 甲乙双方恶意串通，签订虚假买卖合同以逃避债务", "D. 甲将属于丙的名画以自己的名义卖给不知情的乙"], answer: "C", explanation: "根据《民法典》第一百四十六条及第一百五十四条规定，行为人与相对人以虚假的意思表示实施的民事法律行为无效；恶意串通损害他人合法权益的民事法律行为无效。", tags: ["民法"] },
+        { id: 2, question: "关于刑法中的正当防卫，下列说法正确的是？", options: ["A. 对正在进行行凶、杀人等严重危及人身安全的暴力犯罪，采取防卫行为造成不法侵害人伤亡的，不属于防卫过当", "B. 只要受到不法侵害，就可以无限期地进行事后防卫", "C. 为了保护自己养的宠物狗被咬，将对方打成重伤，绝对构成防卫过当", "D. 互相斗殴的过程中，双方都有正当防卫权"], answer: "A", explanation: "根据《刑法》第二十条第三款规定，对正在进行的严重危及人身安全的暴力犯罪，采取防卫行为造成伤亡的，不属于防卫过当（特殊防卫权）。", tags: ["刑法"] },
+        { id: 3, question: "下列关于行政处罚的说法，错误的是？", options: ["A. 限制人身自由的行政处罚，只能由法律设定", "B. 行政法规可以设定除限制人身自由以外的行政处罚", "C. 地方性法规可以设定吊销企业营业执照的行政处罚", "D. 部门规章可以在法律规定的范围内作出具体规定"], answer: "C", explanation: "地方性法规无权设定吊销企业营业执照的处罚，C项说法错误。", tags: ["行政法"] },
+        { id: 4, question: "在刑事诉讼中，下列哪项证据属于言词证据？", options: ["A. 现场提取的作案刀具", "B. 监控录像拍下的作案过程", "C. 被害人的陈述", "D. 鉴定机构出具的伤情鉴定意见"], answer: "C", explanation: "被害人陈述是以人的语言陈述形式表现出的证据，属于典型的言词证据。", tags: ["刑诉法"] },
+        { id: 5, question: "有限责任公司的股东对公司债务承担何种责任？", options: ["A. 无限连带责任", "B. 以其认缴的出资额为限承担责任", "C. 以其实际缴纳的出资额为限承担责任", "D. 以个人全部家庭财产承担责任"], answer: "B", explanation: "有限责任公司股东以其认缴的出资额为限对公司承担责任。", tags: ["商经法"] },
+        { id: 6, question: "保证合同未约定保证方式，根据《民法典》，应承担何种保证责任？", options: ["A. 连带保证责任", "B. 一般保证责任", "C. 补充赔偿责任", "D. 按份保证责任"], answer: "B", explanation: "《民法典》规定，未约定或约定不明的，按照一般保证承担保证责任。", tags: ["民法"] },
+        { id: 7, question: "关于不作为犯罪，下列说法错误的是？", options: ["A. 行为人负有特定的作为义务", "B. 作为义务的来源只能是法律的明文规定", "C. 要求行为人具有履行能力", "D. 必须造成了危害结果或危险"], answer: "B", explanation: "作为义务来源还包括职务要求、法律行为和先行行为等，B项过于绝对。", tags: ["刑法"] },
+        { id: 8, question: "地方政府规章与国务院部门规章不一致时如何处理？", options: ["A. 直接适用地方政府规章", "B. 直接适用国务院部门规章", "C. 由国务院提出意见，认为应适用地方规章的决定在该地适用", "D. 提请全国人大常委会裁决"], answer: "C", explanation: "由国务院提出意见，认为应当适用地方性法规的，决定在该地方适用地方性法规的规定。", tags: ["行政法"] },
+        { id: 9, question: "关于民事诉讼举证期限，下列说法正确的是？", options: ["A. 只能由法院指定", "B. 逾期提供一律不予采纳", "C. 一审普通程序不得少于15日", "D. 简易程序不受任何限制"], answer: "C", explanation: "人民法院指定举证期限的，一审普通程序不得少于十五日。", tags: ["民诉法"] },
+        { id: 10, question: "关于有限合伙企业的合伙人，下列说法正确的是？", options: ["A. 至少应有2个普通合伙人", "B. 有限合伙人可以劳务出资", "C. 有限合伙人不执行合伙事务，不得对外代表企业", "D. 国有独资公司可以成为普通合伙人"], answer: "C", explanation: "有限合伙人不执行合伙事务，不得对外代表有限合伙企业。", tags: ["商经法"] },
+        { id: 11, question: "下列哪种情形构成犯罪中止？", options: ["A. 买好刀在路上被抓", "B. 投毒后心生怜悯送医救活", "C. 入室盗窃发现有人害怕逃跑", "D. 强奸遭激烈反抗未能得逞"], answer: "B", explanation: "B项在结果发生前自动采取措施有效防止了死亡结果，构成犯罪中止。", tags: ["刑法"] },
+        { id: 12, question: "关于行政许可的设定，下列说法错误的是？", options: ["A. 法律可以设定各种行政许可", "B. 尚未制定法律的，行政法规可以设定", "C. 必要时国务院可采用发布决定的方式设定", "D. 省级政府规章设定的许可可以是永久性的"], answer: "D", explanation: "省级政府规章只能设定临时性行政许可，不能设定永久性许可。", tags: ["行政法"] },
+        { id: 13, question: "先交货方确切掌握对方濒临破产，可以采取什么措施？", options: ["A. 直接解除合同", "B. 行使不安抗辩权，中止履行", "C. 行使先履行抗辩权拒绝交货", "D. 要求担保否则立即起诉"], answer: "B", explanation: "有确切证据证明对方经营状况严重恶化等情形的，可以中止履行（不安抗辩权）。", tags: ["民法"] },
+        { id: 14, question: "关于辩护人权利，下列说法错误的是？", options: ["A. 有权会见在押嫌疑人", "B. 有权查阅案卷材料", "C. 收集到不在场证据应及时告知办案机关", "D. 所有案件会见都需要侦查机关批准"], answer: "D", explanation: "只有危害国家安全犯罪、恐怖活动犯罪案件在侦查期间会见才需许可。", tags: ["刑诉法"] },
+        { id: 15, question: "关于汇票，下列说法正确的是？", options: ["A. 出票人必须是银行", "B. 见票即付的汇票无需提示承兑", "C. 背书未记载被背书人名称则无效", "D. 汇票金额可以部分转让"], answer: "B", explanation: "见票即付的汇票无需提示承兑。", tags: ["商经法"] },
+        { id: 16, question: "附义务遗嘱继承中，继承人无正当理由拒不履行义务的后果是？", options: ["A. 遗嘱自动失效收归国家", "B. 依然继承但需支付赡养费", "C. 经利害关系人请求，法院可取消其接受附义务部分遗产的权利", "D. 丧失对所有财产的继承权"], answer: "C", explanation: "经利害关系人或有关组织请求，人民法院可以取消其接受附义务部分遗产的权利。", tags: ["民法"] },
+        { id: 17, question: "关于刑法因果关系，下列说法正确的是？", options: ["A. 轻伤乙后乙遇车祸身亡，有因果关系", "B. 追杀乙致其跳河溺亡，无因果关系", "C. 下毒前乙被丙打死，下毒行为与死亡无因果关系", "D. 劝人跑步被雷劈死，有因果关系"], answer: "C", explanation: "丙的开枪行为是异常介入因素，切断了甲的下毒行为与乙死亡之间的因果关系。", tags: ["刑法"] },
+        { id: 18, question: "行政诉讼中，被告对作出的行政行为负有举证责任，应当在收到起诉状副本之日起多少日内提交证据？", options: ["A. 7日", "B. 10日", "C. 15日", "D. 30日"], answer: "C", explanation: "被告应当在收到起诉状副本之日起十五日内向人民法院提交证据。", tags: ["行政法"] },
+        { id: 19, question: "关于民事诉讼法中的回避制度，下列说法错误的是？", options: ["A. 审判人员是本案当事人近亲属应当回避", "B. 回避决定作出前，被申请回避的人员应当暂停参与本案工作", "C. 院长担任审判长时的回避由审判委员会决定", "D. 当事人对驳回回避申请的决定不服可以申请复议一次"], answer: "B", explanation: "紧急情况下需要采取保全等措施的除外，并非一律暂停参与。", tags: ["民诉法"] },
+        { id: 20, question: "根据《企业破产法》，人民法院受理破产申请后，有关债务人的民事诉讼只能向哪个法院提起？", options: ["A. 原告住所地法院", "B. 被告住所地法院", "C. 受理破产申请的人民法院", "D. 合同履行地法院"], answer: "C", explanation: "根据《企业破产法》第二十一条，受理后有关债务人的民事诉讼只能向受理破产申请的法院提起。", tags: ["商经法"] }
+    ];
+
+    let questions = [];
+    let userRecords = JSON.parse(localStorage.getItem('law_exam_records')) || {}; 
+    let currentQIndex = 0;
+    let selectedOption = null;
+    let isSubmitted = false;
+    let timerInterval = null;
+    let seconds = 0;
+
+    function init() {
+        const savedQ = localStorage.getItem('law_exam_questions');
+        questions = savedQ ? JSON.parse(savedQ) : defaultQuestions;
+        updateDashboard();
+        switchView('home');
+    }
+
+    function saveData() {
+        localStorage.setItem('law_exam_records', JSON.stringify(userRecords));
+        localStorage.setItem('law_exam_questions', JSON.stringify(questions));
+    }
+
+    function switchView(viewName) {
+        document.getElementById('view-home').classList.add('hidden');
+        document.getElementById('view-quiz').classList.add('hidden');
+        document.getElementById('view-wrong').classList.add('hidden');
+        
+        if (viewName === 'home') {
+            document.getElementById('view-home').classList.remove('hidden');
+            stopTimer();
+            updateDashboard();
+        } else if (viewName === 'quiz') {
+            document.getElementById('view-quiz').classList.remove('hidden');
+            startTimer();
+            renderQuestion();
+        } else if (viewName === 'wrong') {
+            document.getElementById('view-wrong').classList.remove('hidden');
+            renderWrongBook();
+        }
+    }
+
+    function updateDashboard() {
+        const total = Object.keys(userRecords).length;
+        const correctCount = Object.values(userRecords).filter(r => r.correct).length;
+        const wrongCount = Object.values(userRecords).filter(r => !r.correct).length;
+        const rate = total > 0 ? Math.round((correctCount / total) * 100) : 0;
+
+        document.getElementById('stat-total').innerText = total;
+        document.getElementById('stat-rate').innerText = rate + '%';
+        document.getElementById('stat-wrong').innerText = wrongCount;
+
+        const historyContainer = document.getElementById('history-list');
+        historyContainer.innerHTML = '';
+        const recentIds = Object.keys(userRecords).slice(-5).reverse();
+        if(recentIds.length === 0) {
+            historyContainer.innerHTML = '<div class="empty-tip">暂无做题记录，快去刷题吧！</div>';
+            return;
+        }
+        recentIds.forEach(id => {
+            const q = questions.find(q => q.id == id);
+            if(!q) return;
+            const record = userRecords[id];
+            const div = document.createElement('div');
+            div.className = 'wrong-list-item';
+            div.style.borderLeft = `4px solid ${record.correct ? 'var(--success-color)' : 'var(--error-color)'}`;
+            div.innerHTML = `<div style="font-weight:bold">${q.question.substring(0, 25)}...</div>
+                             <div style="font-size:0.8rem; color:#888; margin-top:4px;">${record.correct ? '✅ 回答正确' : '❌ 回答错误'} · ${q.tags.join('/')}</div>`;
+            historyContainer.appendChild(div);
+        });
+    }
+
+    function startQuiz() {
+        currentQIndex = 0;
+        seconds = 0;
+        switchView('quiz');
+    }
+
+    function renderQuestion() {
+        const q = questions[currentQIndex];
+        isSubmitted = false;
+        selectedOption = null;
+
+        if (userRecords[q.id]) {
+            isSubmitted = true;
+            selectedOption = userRecords[q.id].userAnswer;
+        }
+        
+        document.getElementById('progress-text').innerText = `第 ${currentQIndex + 1}/${questions.length} 题`;
+        document.getElementById('q-text').innerText = q.question;
+        document.getElementById('exp-text').innerText = q.explanation;
+        document.getElementById('explanation-box').style.display = isSubmitted ? 'block' : 'none';
+
+        const optList = document.getElementById('options-list');
+        optList.innerHTML = '';
+        q.options.forEach(opt => {
+            const div = document.createElement('div');
+            div.className = 'option-item';
+            div.innerText = opt;
+            
+            if (isSubmitted) {
+                if (opt.charAt(0) === q.answer) div.classList.add('correct');
+                else if (opt.charAt(0) === selectedOption && !userRecords[q.id].correct) div.classList.add('wrong');
+            } else {
+                div.onclick = () => selectOption(opt.charAt(0), div);
+                if (selectedOption === opt.charAt(0)) div.classList.add('selected');
+            }
+            optList.appendChild(div);
+        });
+
+        document.getElementById('btn-prev').disabled = currentQIndex === 0;
+        document.getElementById('btn-next').disabled = currentQIndex === questions.length - 1;
+        document.getElementById('btn-submit').innerText = isSubmitted ? '已判定' : '确认答案';
+        document.getElementById('btn-submit').disabled = isSubmitted;
+    }
+
+    function selectOption(letter, element) {
+        if (isSubmitted) return;
+        document.querySelectorAll('.option-item').forEach(el => el.classList.remove('selected'));
+        element.classList.add('selected');
+        selectedOption = letter;
+    }
+
+    function submitAnswer() {
+        if (!selectedOption || isSubmitted) return;
+        isSubmitted = true;
+        const q = questions[currentQIndex];
+        const isCorrect = selectedOption === q.answer;
+        
+        userRecords[q.id] = { correct: isCorrect, userAnswer: selectedOption };
+        saveData();
+        renderQuestion(); 
+    }
+
+    function prevQuestion() { 
+        if(currentQIndex > 0) { 
+            currentQIndex--; 
+            renderQuestion(); 
+        } 
+    }
+
+    function nextQuestion() { 
+        if(currentQIndex < questions.length - 1) { 
+            currentQIndex++; 
+            renderQuestion(); 
+        } 
+    }
+
+    function startTimer() {
+        stopTimer();
+        timerInterval = setInterval(() => {
+            seconds++;
+            const m = String(Math.floor(seconds / 60)).padStart(2, '0');
+            const s = String(seconds % 60).padStart(2, '0');
+            document.getElementById('timer-text').innerText = `⏱️ ${m}:${s}`;
+        }, 1000);
+    }
+    function stopTimer() { clearInterval(timerInterval); }
+
+    function showWrongBook() { switchView('wrong'); }
+    
+    function renderWrongBook() {
+        const container = document.getElementById('wrong-list-container');
+        container.innerHTML = '';
+        const wrongIds = Object.entries(userRecords).filter(([_, v]) => !v.correct).map(([k, _]) => Number(k));
+        
+        if (wrongIds.length === 0) {
+            container.innerHTML = '<div class="empty-tip">🎉 太棒了！目前没有错题，继续保持！</div>';
+            return;
+        }
+        
+        wrongIds.forEach(id => {
+            const q = questions.find(q => q.id === id);
+            if(!q) return;
+            const div = document.createElement('div');
+            div.className = 'wrong-list-item';
+            div.onclick = () => {
+                currentQIndex = questions.findIndex(q => q.id === id);
+                switchView('quiz');
+            };
+            div.innerHTML = `<div style="font-weight:bold">${q.question.substring(0, 30)}...</div>
+                             <div style="font-size:0.8rem; color:#888; margin-top:4px;">[${q.tags.join('/')}] 答案: ${q.answer}</div>`;
+            container.appendChild(div);
+        });
+    }
+
+    function clearWrongBook() {
+        if(!confirm('确定要清空所有错题记录吗？此操作不可逆。')) return;
+        for(const id in userRecords) {
+            if(!userRecords[id].correct) delete userRecords[id];
+        }
+        saveData();
+        renderWrongBook();
+        updateDashboard();
+    }
+
+    // 启动应用
+    init();
+</script>
+</body>
+</html>
